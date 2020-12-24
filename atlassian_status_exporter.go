@@ -27,6 +27,7 @@ var (
 	help          = flag.Bool("help", false, "help will display this helpful dialog output")
 	port          = flag.String("svc.port", "9997", "set the port that this service will listen on")
 	protocal      = flag.String("app.protocal", "https", "set the protocol used to interact with the application")
+	scrapeTimeout = flag.Int("svc.timeout", 10, "set the timeout this service will allow to check the url. by default prometheus scrape timeout is 10 second. if you know the scrape may take longer, this can be adjusted.")
 	url           = flag.String("app.url", "", "REQUIRED: provide the application url to be monitored (ie. <bitbucket|confluence|jira>.domain.com)")
 
 	baseURL      string
@@ -37,6 +38,10 @@ var (
 		"\nUsage: " + namespace + "_exporter [Arguments...]\n" +
 		"\nArguments:\n"
 )
+
+var client = http.Client{
+	Timeout: time.Duration(*scrapeTimeout) * time.Second,
+}
 
 // usage is used to display this binaries usage description and then exit the program.
 var usage = func() {
@@ -103,21 +108,21 @@ func (collector *statusCollector) Collect(ch chan<- prometheus.Metric) {
 
 	startTime := time.Now()
 
-	log.Debug("get url", baseURL)
-	resp, err := http.Get(baseURL)
+	log.Debug("get url ", baseURL)
+	resp, err := client.Get(baseURL)
 	if err != nil {
-		log.Warn("http.Get base URL returned an error:", err)
+		log.Warn("client.Get base URL returned an error: ", err)
 		ch <- prometheus.MustNewConstMetric(collector.scrapeUpMetric, prometheus.GaugeValue, 0, "", *url)
 		return
 	}
 	defer resp.Body.Close()
 
-	log.Debug("set scrape up metric with statuscode:", strconv.Itoa(resp.StatusCode))
+	log.Debug("set scrape_url_up metric")
 	ch <- prometheus.MustNewConstMetric(collector.scrapeUpMetric, prometheus.GaugeValue, 1, strconv.Itoa(resp.StatusCode), *url)
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Error("ioutil.ReadAll returned an error:", err)
+		log.Error("ioutil.ReadAll returned an error: ", err)
 	}
 
 	// remove the trailing \n and any whitespace before checking if we got an empty body
@@ -128,9 +133,9 @@ func (collector *statusCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	m := unmarshal(body)
-	log.Debug("the returned body map:", m)
+	log.Debug("the returned body map: ", m)
 
-	log.Debug("create status metric for", m.State)
+	log.Debug("set state metric")
 	ch <- prometheus.MustNewConstMetric(
 		collector.stateMetric,
 		prometheus.GaugeValue,
@@ -143,7 +148,7 @@ func (collector *statusCollector) Collect(ch chan<- prometheus.Metric) {
 
 	finishTime := time.Now()
 	elapsedTime := finishTime.Sub(startTime)
-	log.Debug("set the duration metric")
+	log.Debug("set collect_duration_seconds metric")
 	ch <- prometheus.MustNewConstMetric(collector.stateRuntimeMetric, prometheus.GaugeValue, elapsedTime.Seconds(), *url)
 	log.Debug("collect finished")
 }
@@ -230,11 +235,11 @@ func main() {
 	// check for debug argument, adjust if set
 	if *debug {
 		log.SetLevel(log.DebugLevel)
-		log.Debug("Log Level: debug")
+		log.Debug("set log level: debug")
 	}
 
+	log.Debug("set status url from given argument: ", *url)
 	baseURL = *protocal + "://" + *url + "/status"
-	log.Debug("request url: ", baseURL)
 
 	// Create a new instance of the statusCollector and then
 	// register it with the prometheus client.

@@ -36,7 +36,13 @@ docker run -it --rm atlassian_status_exporter -help
 Simple run
 
 ```none
-docker run -it --rm -p 9997:9997 atlassian_status_exporter -app.url="<bitbucket|confluence|jira>.domain.com"
+docker run -d --rm -p 9997:9997 atlassian_status_exporter -app.url="<bitbucket|confluence|jira>.domain.com"
+```
+
+Working Example
+
+```none
+docker run -it --rm -p 9997:9997 atlassian_status_exporter -app.url="confluence.atlassian.com" --debug
 ```
 
 ## Prometheus Job
