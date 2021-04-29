@@ -1,8 +1,8 @@
-module atlassian_status_exporter.go
+module atlassian_status_exporter
 
-go 1.15
+go 1.13
 
 require (
-	github.com/prometheus/client_golang v1.10.0 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/prometheus/client_golang v1.10.0
+	github.com/sirupsen/logrus v1.8.1
 )
